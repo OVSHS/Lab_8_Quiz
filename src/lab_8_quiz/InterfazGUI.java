@@ -10,22 +10,25 @@ package lab_8_quiz;
  */
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.*;
 import java.io.File;
 import java.util.NoSuchElementException;
+
 public class InterfazGUI extends JFrame {
+
     private GestionListaReproduccion lista;
     private ReproduccionMusica reproductor;
     private DefaultListModel<GestionListaReproduccion.Cancion> modeloLista;
     private JList<GestionListaReproduccion.Cancion> jListCanciones;
     private JLabel lblImagen;
     private JLabel lblInfoCancion;
+
     public InterfazGUI() {
-        super("Reproductor MP3 con Lista Enlazada");
+            super("Reproductor MP3");
         setSize(650, 450);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
         lista = new GestionListaReproduccion();
+        reproductor = new ReproduccionMusica();
         JPanel panelPrincipal = new JPanel(new BorderLayout());
         getContentPane().add(panelPrincipal);
         modeloLista = new DefaultListModel<>();
@@ -55,8 +58,18 @@ public class InterfazGUI extends JFrame {
         panelBotones.add(btnRemove);
         panelPrincipal.add(panelBotones, BorderLayout.SOUTH);
         btnPlay.addActionListener(e -> playCancion());
-        btnPause.addActionListener(e -> reproductor.pause());
-        btnStop.addActionListener(e -> reproductor.stop());
+        btnPause.addActionListener(e -> {
+            if (reproductor == null) {
+                reproductor = new ReproduccionMusica();
+            }
+            reproductor.pause();
+        });
+        btnStop.addActionListener(e -> {
+            if (reproductor == null) {
+                reproductor = new ReproduccionMusica();
+            }
+            reproductor.stop();
+        });
         btnAdd.addActionListener(e -> agregarCancion());
         btnSelect.addActionListener(e -> seleccionarCancion());
         btnRemove.addActionListener(e -> eliminarCancion());
@@ -69,6 +82,7 @@ public class InterfazGUI extends JFrame {
             }
         });
     }
+    
     private void playCancion() {
         if (reproductor.getRutaCancion() == null) {
             JOptionPane.showMessageDialog(this, "No hay cancion seleccionada");
@@ -76,11 +90,15 @@ public class InterfazGUI extends JFrame {
         }
         reproductor.play();
     }
+    
     private void seleccionarCancion() {
         int i = jListCanciones.getSelectedIndex();
         if (i >= 0) {
             try {
                 GestionListaReproduccion.Cancion c = lista.getSong(i);
+                if (reproductor == null) {
+                    reproductor = new ReproduccionMusica();
+                }
                 reproductor.stop();
                 reproductor.setRutaCancion(c.getRutaArchivo());
                 mostrarInfoCancion(c);
@@ -88,6 +106,80 @@ public class InterfazGUI extends JFrame {
             }
         } else {
             JOptionPane.showMessageDialog(this, "Selecciona una cancion primero");
+        }
+    }
+    
+    private void agregarCancion() {
+        JFileChooser fileChooser = new JFileChooser("./musica");
+        fileChooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("Archivos MP3", "mp3"));
+        int opcion = fileChooser.showOpenDialog(this);
+        if (opcion == JFileChooser.APPROVE_OPTION) {
+            File archivoMp3 = fileChooser.getSelectedFile();
+            String nombre = JOptionPane.showInputDialog(this, "Nombre de la cancion", archivoMp3.getName());
+            if (nombre == null || nombre.isEmpty()) {
+                nombre = archivoMp3.getName();
+            }
+            String artista = JOptionPane.showInputDialog(this, "Artista", "Elegir");
+            if (artista == null) artista = "Elegir";
+            String duracion = JOptionPane.showInputDialog(this, "Duracion ", "00:00");
+            if (duracion == null) duracion = "00:00";
+            String genero = JOptionPane.showInputDialog(this, "Genero musical", "Elegir");
+            if (genero == null) genero = "Elegir";
+            String rutaImagen = null;
+            int resp = JOptionPane.showConfirmDialog(this, "Deseas agregar una imagen para esta cancion?");
+            if (resp == JOptionPane.YES_OPTION) {
+                JFileChooser imageChooser = new JFileChooser("./imagen");
+                imageChooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("Imagenes (JPG, PNG)", "jpg", "png", "jpeg"));
+                int opcionImg = imageChooser.showOpenDialog(this);
+                if (opcionImg == JFileChooser.APPROVE_OPTION) {
+                    File archivoImg = imageChooser.getSelectedFile();
+                    rutaImagen = archivoImg.getAbsolutePath();
+                }
+            }
+            GestionListaReproduccion.Cancion nueva = new GestionListaReproduccion.Cancion(
+                nombre, artista, duracion, genero, archivoMp3.getAbsolutePath(), rutaImagen
+            );
+            lista.addSong(nueva);
+            modeloLista.addElement(nueva);
+        }
+    }
+    
+    private void eliminarCancion() {
+        int i = jListCanciones.getSelectedIndex();
+        if (i >= 0) {
+            GestionListaReproduccion.Cancion c = lista.getSong(i);
+            if (c.getRutaArchivo().equals(reproductor.getRutaCancion())) {
+                if (reproductor == null) {
+                    reproductor = new ReproduccionMusica();
+                }
+                reproductor.stop();
+                reproductor.setRutaCancion(null);
+            }
+            lista.removeSong(i);
+            modeloLista.remove(i);
+            lblImagen.setIcon(null);
+            lblImagen.setText("Imagen del Album/Cancion");
+            lblInfoCancion.setText("Info de la cancion");
+        } else {
+            JOptionPane.showMessageDialog(this, "Selecciona una cancion para eliminar");
+        }
+    }
+    
+    private void mostrarInfoCancion(GestionListaReproduccion.Cancion c) {
+        if (c == null) return;
+        String info = "Nombre: " + c.getNombre() +
+                      " | Artista: " + c.getArtista() +
+                      " | Duracion: " + c.getDuracion() +
+                      " | Genero: " + c.getGenero();
+        lblInfoCancion.setText(info);
+        if (c.getRutaImagen() != null) {
+            ImageIcon icon = new ImageIcon(c.getRutaImagen());
+            Image img = icon.getImage().getScaledInstance(200, 200, Image.SCALE_SMOOTH);
+            lblImagen.setIcon(new ImageIcon(img));
+            lblImagen.setText("");
+        } else {
+            lblImagen.setIcon(null);
+            lblImagen.setText("Sin imagen disponible");
         }
     }
 }
